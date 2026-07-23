@@ -1,7 +1,6 @@
 import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
 import { ImportService } from '@ghostfolio/api/app/import/import.service';
 import { PortfolioService } from '@ghostfolio/api/app/portfolio/portfolio.service';
-import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { PROPERTY_IS_READ_ONLY_MODE } from '@ghostfolio/common/config';
@@ -14,7 +13,6 @@ export class AutomatedDividendImportService {
 
   public constructor(
     private readonly activitiesService: ActivitiesService,
-    private readonly configurationService: ConfigurationService,
     private readonly importService: ImportService,
     private readonly portfolioService: PortfolioService,
     private readonly prismaService: PrismaService,
@@ -112,6 +110,7 @@ export class AutomatedDividendImportService {
                     }
                   }
                 },
+                user: { connect: { id: user.id } },
                 userId: user.id
               });
 

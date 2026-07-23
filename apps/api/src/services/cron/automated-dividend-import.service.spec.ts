@@ -1,7 +1,6 @@
 import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
 import { ImportService } from '@ghostfolio/api/app/import/import.service';
 import { PortfolioService } from '@ghostfolio/api/app/portfolio/portfolio.service';
-import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 
@@ -10,7 +9,6 @@ import { AutomatedDividendImportService } from './automated-dividend-import.serv
 describe('AutomatedDividendImportService', () => {
   let activitiesService: ActivitiesService;
   let automatedDividendImportService: AutomatedDividendImportService;
-  let configurationService: ConfigurationService;
   let importService: ImportService;
   let portfolioService: PortfolioService;
   let prismaService: PrismaService;
@@ -18,7 +16,6 @@ describe('AutomatedDividendImportService', () => {
 
   beforeEach(() => {
     activitiesService = { createActivity: jest.fn() } as any;
-    configurationService = { get: jest.fn() } as any;
     importService = { getDividends: jest.fn() } as any;
     portfolioService = { getHoldings: jest.fn() } as any;
     prismaService = { user: { findMany: jest.fn() } } as any;
@@ -26,7 +23,6 @@ describe('AutomatedDividendImportService', () => {
 
     automatedDividendImportService = new AutomatedDividendImportService(
       activitiesService,
-      configurationService,
       importService,
       portfolioService,
       prismaService,
