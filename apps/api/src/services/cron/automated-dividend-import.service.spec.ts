@@ -18,7 +18,11 @@ describe('AutomatedDividendImportService', () => {
     activitiesService = { createActivity: jest.fn() } as any;
     importService = { getDividends: jest.fn() } as any;
     portfolioService = { getHoldings: jest.fn() } as any;
-    prismaService = { user: { findMany: jest.fn() } } as any;
+    prismaService = {
+      account: { findMany: jest.fn() },
+      settings: { findUnique: jest.fn() },
+      user: { findMany: jest.fn() }
+    } as any;
     propertyService = { getByKey: jest.fn() } as any;
 
     automatedDividendImportService = new AutomatedDividendImportService(
@@ -34,18 +38,22 @@ describe('AutomatedDividendImportService', () => {
     jest.spyOn(propertyService, 'getByKey').mockResolvedValue(false);
     jest.spyOn(prismaService.user, 'findMany').mockResolvedValue([
       {
-        currency: 'USD',
-        id: 'user-1',
-        accounts: [{ id: 'acc-1' }]
+        id: 'user-1'
       }
     ] as any);
+    jest.spyOn(prismaService.account, 'findMany').mockResolvedValue([
+      { id: 'acc-1' }
+    ] as any);
+    jest.spyOn(prismaService.settings, 'findUnique').mockResolvedValue({
+      settings: { baseCurrency: 'USD' }
+    } as any);
 
     jest.spyOn(portfolioService, 'getHoldings').mockResolvedValue([
       {
-        dataSource: 'YAHOO',
-        symbol: 'AAPL',
-        isin: '',
-        name: 'Apple Inc.',
+        assetProfile: {
+          dataSource: 'YAHOO',
+          symbol: 'AAPL'
+        },
         quantity: 10
       }
     ] as any);

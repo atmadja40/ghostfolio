@@ -3,7 +3,11 @@ import { ImportService } from '@ghostfolio/api/app/import/import.service';
 import { PortfolioService } from '@ghostfolio/api/app/portfolio/portfolio.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
-import { PROPERTY_IS_READ_ONLY_MODE } from '@ghostfolio/common/config';
+import {
+  DEFAULT_CURRENCY,
+  PROPERTY_IS_READ_ONLY_MODE
+} from '@ghostfolio/common/config';
+import { UserSettings } from '@ghostfolio/common/interfaces';
 
 import { Injectable, Logger } from '@nestjs/common';
 
@@ -40,18 +44,27 @@ export class AutomatedDividendImportService {
     try {
       const users = await this.prismaService.user.findMany({
         select: {
-          currency: true,
-          id: true,
-          accounts: {
-            select: { id: true }
-          }
+          id: true
         }
       });
 
       for (const user of users) {
-        if (!user.accounts || user.accounts.length === 0) {
+        const accounts = await this.prismaService.account.findMany({
+          select: { id: true },
+          where: { userId: user.id }
+        });
+
+        if (!accounts || accounts.length === 0) {
           continue;
         }
+
+        const settingsRecord = await this.prismaService.settings.findUnique({
+          where: { userId: user.id }
+        });
+
+        const userCurrency =
+          (settingsRecord?.settings as UserSettings)?.baseCurrency ??
+          DEFAULT_CURRENCY;
 
         try {
           const holdings = await this.portfolioService.getHoldings({
@@ -61,7 +74,7 @@ export class AutomatedDividendImportService {
           });
 
           for (const holding of holdings) {
-            const { dataSource, symbol } = holding;
+            const { dataSource, symbol } = holding.assetProfile ?? {};
             if (!dataSource || !symbol) {
               continue;
             }
@@ -69,7 +82,7 @@ export class AutomatedDividendImportService {
             const candidateDividends = await this.importService.getDividends({
               dataSource,
               symbol,
-              userCurrency: user.currency,
+              userCurrency,
               userId: user.id
             });
 
@@ -78,8 +91,7 @@ export class AutomatedDividendImportService {
                 continue;
               }
 
-              const accountId =
-                dividendActivity.accountId ?? user.accounts[0]?.id;
+              const accountId = dividendActivity.accountId ?? accounts[0]?.id;
 
               if (!accountId) {
                 continue;
