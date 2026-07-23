@@ -1,7 +1,11 @@
+import { ActivitiesModule } from '@ghostfolio/api/app/activities/activities.module';
+import { ImportModule } from '@ghostfolio/api/app/import/import.module';
+import { PortfolioModule } from '@ghostfolio/api/app/portfolio/portfolio.module';
 import { UserModule } from '@ghostfolio/api/app/user/user.module';
 import { UserService } from '@ghostfolio/api/app/user/user.service';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
 import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
+import { PrismaModule } from '@ghostfolio/api/services/prisma/prisma.module';
 import { PropertyModule } from '@ghostfolio/api/services/property/property.module';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { DataGatheringQueueModule } from '@ghostfolio/api/services/queues/data-gathering/data-gathering.module';
@@ -13,20 +17,27 @@ import { TwitterBotService } from '@ghostfolio/api/services/twitter-bot/twitter-
 
 import { Logger, Module } from '@nestjs/common';
 
+import { AutomatedDividendImportService } from './automated-dividend-import.service';
 import { CronService } from './cron.service';
 
 @Module({
   imports: [
+    ActivitiesModule,
     ConfigurationModule,
     DataGatheringQueueModule,
+    ImportModule,
+    PortfolioModule,
+    PrismaModule,
     PropertyModule,
     StatisticsGatheringQueueModule,
     TwitterBotModule,
     UserModule
   ],
   providers: [
+    AutomatedDividendImportService,
     {
       inject: [
+        AutomatedDividendImportService,
         ConfigurationService,
         DataGatheringService,
         PropertyService,
@@ -36,6 +47,7 @@ import { CronService } from './cron.service';
       ],
       provide: CronService,
       useFactory: (
+        automatedDividendImportService: AutomatedDividendImportService,
         configurationService: ConfigurationService,
         dataGatheringService: DataGatheringService,
         propertyService: PropertyService,
@@ -50,6 +62,7 @@ import { CronService } from './cron.service';
         }
 
         return new CronService(
+          automatedDividendImportService,
           configurationService,
           dataGatheringService,
           propertyService,

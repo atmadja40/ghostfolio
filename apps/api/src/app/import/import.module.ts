@@ -42,6 +42,7 @@ import { ImportService } from './import.service';
     TransformDataSourceInRequestModule,
     TransformDataSourceInResponseModule
   ],
-  providers: [ImportService]
+  providers: [ImportService],
+  exports: [ImportService]
 })
 export class ImportModule {}

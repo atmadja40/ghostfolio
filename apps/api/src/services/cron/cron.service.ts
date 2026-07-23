@@ -15,12 +15,15 @@ import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
+import { AutomatedDividendImportService } from './automated-dividend-import.service';
+
 @Injectable()
 export class CronService {
   private static readonly EVERY_HOUR_AT_RANDOM_MINUTE = `${new Date().getMinutes()} * * * *`;
   private static readonly EVERY_SUNDAY_AT_LUNCH_TIME = '0 12 * * 0';
 
   public constructor(
+    private readonly automatedDividendImportService: AutomatedDividendImportService,
     private readonly configurationService: ConfigurationService,
     private readonly dataGatheringService: DataGatheringService,
     private readonly propertyService: PropertyService,
@@ -56,6 +59,8 @@ export class CronService {
     if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
       this.userService.resetAnalytics();
     }
+
+    await this.automatedDividendImportService.importDividendsForAllUsers();
   }
 
   @Cron(CronService.EVERY_SUNDAY_AT_LUNCH_TIME)
