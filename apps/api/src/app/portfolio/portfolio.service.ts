@@ -365,7 +365,7 @@ export class PortfolioService {
   }: {
     dateRange: DateRange;
     filters?: Filter[];
-    impersonationId: string;
+    impersonationId?: string;
     userId: string;
   }) {
     userId = await this.getUserId(impersonationId, userId);

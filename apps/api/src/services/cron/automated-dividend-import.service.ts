@@ -100,7 +100,11 @@ export class AutomatedDividendImportService {
                       currency: dividendActivity.assetProfile.currency,
                       dataSource: dividendActivity.assetProfile.dataSource,
                       name: dividendActivity.assetProfile.name,
-                      symbol: dividendActivity.assetProfile.symbol
+                      symbol: dividendActivity.assetProfile.symbol,
+                      userId:
+                        dividendActivity.assetProfile.dataSource === 'MANUAL'
+                          ? user.id
+                          : undefined
                     },
                     where: {
                       dataSource_symbol: {
@@ -110,6 +114,8 @@ export class AutomatedDividendImportService {
                     }
                   }
                 },
+                tags: [],
+                updateAccountBalance: false,
                 user: { connect: { id: user.id } },
                 userId: user.id
               });
