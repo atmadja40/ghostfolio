@@ -67,17 +67,24 @@ export class CronService {
   public async runAutomatedDividendImportEveryMinute() {
     console.log('CRON: Starting automated dividend import');
 
+    if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
+      await this.userService.resetAnalytics();
+    }
+
     try {
       const result =
         await this.automatedDividendImportService.importDividendsForAllUsers();
 
-    console.log(
-      `CRON: Automated dividend import finished (${result} dividends imported)`
-    );
-  } catch (error) {
-    console.error('CRON: Automated dividend import failed', error);
+      console.log(
+        `CRON: Automated dividend import finished. ${result} dividends imported`
+      );
+    } catch (error) {
+      console.error(
+        'CRON: Automated dividend import failed',
+        error
+      );
+    }
   }
-}
 
   @Cron(CronService.EVERY_SUNDAY_AT_LUNCH_TIME)
   public async runEverySundayAtTwelvePm() {
