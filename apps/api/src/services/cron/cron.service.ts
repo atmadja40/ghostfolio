@@ -13,6 +13,7 @@ import {
 import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
 
 import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { AutomatedDividendImportService } from './automated-dividend-import.service';
@@ -22,37 +23,50 @@ export class CronService {
   private static readonly EVERY_HOUR_AT_RANDOM_MINUTE = `${new Date().getMinutes()} * * * *`;
   private static readonly EVERY_SUNDAY_AT_LUNCH_TIME = '0 12 * * 0';
 
-  public constructor(
-    private readonly automatedDividendImportService: AutomatedDividendImportService,
-    private readonly configurationService: ConfigurationService,
-    private readonly dataGatheringService: DataGatheringService,
-    private readonly propertyService: PropertyService,
-    private readonly statisticsGatheringService: StatisticsGatheringService,
-    private readonly twitterBotService: TwitterBotService,
-    private readonly userService: UserService
-  ) {
+  public constructor(private readonly moduleRef: ModuleRef) {
     console.log('CronService initialized');
   }
 
   @Cron(CronExpression.EVERY_HOUR)
   public async runEveryHour() {
-    if (this.configurationService.get('ENABLE_FEATURE_STATISTICS')) {
-      await this.statisticsGatheringService.addJobsToQueue();
+    const configurationService = this.moduleRef.get(ConfigurationService, {
+      strict: false
+    });
+    const statisticsGatheringService = this.moduleRef.get(
+      StatisticsGatheringService,
+      {
+        strict: false
+      }
+    );
+
+    if (configurationService.get('ENABLE_FEATURE_STATISTICS')) {
+      await statisticsGatheringService.addJobsToQueue();
     }
   }
 
   @Cron(CronService.EVERY_HOUR_AT_RANDOM_MINUTE)
   public async runEveryHourAtRandomMinute() {
+    const dataGatheringService = this.moduleRef.get(DataGatheringService, {
+      strict: false
+    });
+
     if (await this.isDataGatheringEnabled()) {
-      await this.dataGatheringService.gatherHourlyMarketData();
-      await this.dataGatheringService.gatherRecentMarketData();
+      await dataGatheringService.gatherHourlyMarketData();
+      await dataGatheringService.gatherRecentMarketData();
     }
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_5PM)
   public async runEveryDayAtFivePm() {
-    if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
-      this.twitterBotService.tweetFearAndGreedIndex();
+    const configurationService = this.moduleRef.get(ConfigurationService, {
+      strict: false
+    });
+    const twitterBotService = this.moduleRef.get(TwitterBotService, {
+      strict: false
+    });
+
+    if (configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
+      twitterBotService.tweetFearAndGreedIndex();
     }
   }
 
@@ -69,13 +83,26 @@ export class CronService {
   public async runAutomatedDividendImportEveryMinute() {
     console.log('CRON: Starting automated dividend import');
 
-    if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
-      await this.userService.resetAnalytics();
+    const configurationService = this.moduleRef.get(ConfigurationService, {
+      strict: false
+    });
+    const userService = this.moduleRef.get(UserService, {
+      strict: false
+    });
+    const automatedDividendImportService = this.moduleRef.get(
+      AutomatedDividendImportService,
+      {
+        strict: false
+      }
+    );
+
+    if (configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
+      await userService.resetAnalytics();
     }
 
     try {
       const result =
-        await this.automatedDividendImportService.importDividendsForAllUsers();
+        await automatedDividendImportService.importDividendsForAllUsers();
 
       console.log(
         `CRON: Automated dividend import finished. ${result} dividends imported`
@@ -90,13 +117,17 @@ export class CronService {
 
   @Cron(CronService.EVERY_SUNDAY_AT_LUNCH_TIME)
   public async runEverySundayAtTwelvePm() {
+    const dataGatheringService = this.moduleRef.get(DataGatheringService, {
+      strict: false
+    });
+
     if (await this.isDataGatheringEnabled()) {
       const assetProfileIdentifiers =
-        await this.dataGatheringService.getActiveAssetProfileIdentifiers({
+        await dataGatheringService.getActiveAssetProfileIdentifiers({
           maxAge: '60 days'
         });
 
-      await this.dataGatheringService.addJobsToQueue(
+      await dataGatheringService.addJobsToQueue(
         assetProfileIdentifiers.map(({ dataSource, symbol }) => {
           return {
             data: {
@@ -116,7 +147,11 @@ export class CronService {
   }
 
   private async isDataGatheringEnabled() {
-    return (await this.propertyService.getByKey(
+    const propertyService = this.moduleRef.get(PropertyService, {
+      strict: false
+    });
+
+    return (await propertyService.getByKey(
       PROPERTY_IS_DATA_GATHERING_ENABLED
     )) === false
       ? false
