@@ -30,7 +30,9 @@ export class CronService {
     private readonly statisticsGatheringService: StatisticsGatheringService,
     private readonly twitterBotService: TwitterBotService,
     private readonly userService: UserService
-  ) {}
+  ) {
+    console.log('CronService initialized');
+  }
 
   @Cron(CronExpression.EVERY_HOUR)
   public async runEveryHour() {

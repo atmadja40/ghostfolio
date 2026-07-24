@@ -15,7 +15,7 @@ import { StatisticsGatheringService } from '@ghostfolio/api/services/queues/stat
 import { TwitterBotModule } from '@ghostfolio/api/services/twitter-bot/twitter-bot.module';
 import { TwitterBotService } from '@ghostfolio/api/services/twitter-bot/twitter-bot.service';
 
-import { Logger, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 import { AutomatedDividendImportService } from './automated-dividend-import.service';
 import { CronService } from './cron.service';
@@ -33,49 +33,6 @@ import { CronService } from './cron.service';
     TwitterBotModule,
     UserModule
   ],
-  providers: [
-    AutomatedDividendImportService,
-    {
-      inject: [
-        AutomatedDividendImportService,
-        ConfigurationService,
-        DataGatheringService,
-        PropertyService,
-        StatisticsGatheringService,
-        TwitterBotService,
-        UserService
-      ],
-      provide: CronService,
-      useFactory: (
-        automatedDividendImportService: AutomatedDividendImportService,
-        configurationService: ConfigurationService,
-        dataGatheringService: DataGatheringService,
-        propertyService: PropertyService,
-        statisticsGatheringService: StatisticsGatheringService,
-        twitterBotService: TwitterBotService,
-        userService: UserService
-      ) => {
-        Logger.log('Initializing cron service factory', 'CronService');
-
-        if (!configurationService.get('ENABLE_FEATURE_CRON')) {
-          Logger.log('Scheduled cron jobs are disabled', 'CronService');
-
-          return null;
-        }
-
-        Logger.log('Scheduled cron jobs are enabled', 'CronService');
-
-        return new CronService(
-          automatedDividendImportService,
-          configurationService,
-          dataGatheringService,
-          propertyService,
-          statisticsGatheringService,
-          twitterBotService,
-          userService
-        );
-      }
-    }
-  ]
+  providers: [AutomatedDividendImportService, CronService]
 })
 export class CronModule {}
