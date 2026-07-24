@@ -89,7 +89,7 @@ export class CronService {
     const userService = this.moduleRef.get(UserService, {
       strict: false
     });
-    const automatedDividendImportService = this.moduleRef.get(
+    const automatedDividendImportService = await this.moduleRef.resolve(
       AutomatedDividendImportService,
       {
         strict: false
