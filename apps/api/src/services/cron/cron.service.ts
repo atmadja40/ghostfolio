@@ -90,10 +90,7 @@ export class CronService {
       strict: false
     });
     const automatedDividendImportService = await this.moduleRef.resolve(
-      AutomatedDividendImportService,
-      {
-        strict: false
-      }
+      AutomatedDividendImportService
     );
 
     if (configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
