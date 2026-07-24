@@ -55,11 +55,15 @@ import { CronService } from './cron.service';
         twitterBotService: TwitterBotService,
         userService: UserService
       ) => {
+        Logger.log('Initializing cron service factory', 'CronService');
+
         if (!configurationService.get('ENABLE_FEATURE_CRON')) {
           Logger.log('Scheduled cron jobs are disabled', 'CronService');
 
           return null;
         }
+
+        Logger.log('Scheduled cron jobs are enabled', 'CronService');
 
         return new CronService(
           automatedDividendImportService,
