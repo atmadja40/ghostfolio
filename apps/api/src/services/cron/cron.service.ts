@@ -54,12 +54,17 @@ export class CronService {
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  public async runEveryDayAtMidnight() {
-    if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
-      this.userService.resetAnalytics();
-    }
+  // @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  // public async runEveryDayAtMidnight() {
+  //   if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {
+  //     this.userService.resetAnalytics();
+  //   }
 
+  //   await this.automatedDividendImportService.importDividendsForAllUsers();
+  // }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  public async runAutomatedDividendImportEveryMinute() {
     await this.automatedDividendImportService.importDividendsForAllUsers();
   }
 
