@@ -28,6 +28,24 @@ import { environment } from './environments/environment';
 const logger = new Logger('Bootstrap');
 const processWarningLogger = new Logger('ProcessWarning');
 
+function failOnUnhandledError(aContext: string, aError: unknown) {
+  const error =
+    aError instanceof Error ? aError : new Error(String(aError));
+
+  logger.error(`${aContext}: ${error.message}`, error.stack);
+
+  // Keep the default fail-fast behavior while allowing the logger to flush.
+  setImmediate(() => process.exit(1));
+}
+
+process.once('unhandledRejection', (reason) => {
+  failOnUnhandledError('Unhandled promise rejection', reason);
+});
+
+process.once('uncaughtException', (error) => {
+  failOnUnhandledError('Uncaught exception', error);
+});
+
 process.on('warning', ({ name, stack }) => {
   if (name === 'MaxListenersExceededWarning') {
     // Log the stack trace of MaxListenersExceededWarning occurrences to identify
