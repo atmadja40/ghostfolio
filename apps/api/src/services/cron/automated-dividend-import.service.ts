@@ -69,7 +69,6 @@ export class AutomatedDividendImportService {
         try {
           const holdings = await this.portfolioService.getHoldings({
             dateRange: 'max',
-            impersonationId: undefined,
             userId: user.id
           });
 
