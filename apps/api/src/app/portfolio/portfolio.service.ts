@@ -139,6 +139,7 @@ export class PortfolioService {
     withExcludedAccounts?: boolean;
   }): Promise<AccountWithValue[]> {
     const where: Prisma.AccountWhereInput = { userId };
+    const requestUserId = this.request?.user?.id;
 
     const {
       ACCOUNT: [filterByAccount] = [],
@@ -178,8 +179,8 @@ export class PortfolioService {
       this.getDetails({
         filters,
         withExcludedAccounts,
-        impersonationId: userId,
-        userId: this.request.user.id
+        impersonationId: requestUserId ? userId : undefined,
+        userId: requestUserId ?? userId
       }),
       this.userService.user({ id: userId })
     ]);
@@ -2098,7 +2099,7 @@ export class PortfolioService {
   private getUserCurrency(aUser?: UserWithSettings) {
     return (
       aUser?.settings?.settings.baseCurrency ??
-      this.request.user?.settings?.settings.baseCurrency ??
+      this.request?.user?.settings?.settings.baseCurrency ??
       DEFAULT_CURRENCY
     );
   }
