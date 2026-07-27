@@ -78,8 +78,8 @@ export class CronService {
   //   await this.automatedDividendImportService.importDividendsForAllUsers();
   // }
 
-  @Cron(CronExpression.EVERY_MINUTE)
-  public async runAutomatedDividendImportEveryMinute() {
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  public async runAutomatedDividendImportEveryMidnight() {
     const configurationService = this.moduleRef.get(ConfigurationService, {
       strict: false
     });
