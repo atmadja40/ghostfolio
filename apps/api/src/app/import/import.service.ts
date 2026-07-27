@@ -27,7 +27,7 @@ import {
   UserWithSettings
 } from '@ghostfolio/common/types';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, Prisma } from '@prisma/client';
 import { Big } from 'big.js';
 import { endOfToday, isAfter, isSameSecond, parseISO } from 'date-fns';
@@ -38,6 +38,8 @@ import { ImportDataDto } from './import-data.dto';
 
 @Injectable()
 export class ImportService {
+  private readonly logger = new Logger(ImportService.name);
+
   public constructor(
     private readonly accountService: AccountService,
     private readonly activitiesService: ActivitiesService,
@@ -163,7 +165,12 @@ export class ImportService {
           };
         })
       );
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `Could not prepare dividend candidates for ${dataSource}:${symbol}: ${error?.message ?? error}`,
+        error?.stack
+      );
+
       return [];
     }
   }

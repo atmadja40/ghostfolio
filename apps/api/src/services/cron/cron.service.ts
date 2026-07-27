@@ -12,7 +12,7 @@ import {
 } from '@ghostfolio/common/config';
 import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
@@ -22,10 +22,9 @@ import { AutomatedDividendImportService } from './automated-dividend-import.serv
 export class CronService {
   private static readonly EVERY_HOUR_AT_RANDOM_MINUTE = `${new Date().getMinutes()} * * * *`;
   private static readonly EVERY_SUNDAY_AT_LUNCH_TIME = '0 12 * * 0';
+  private readonly logger = new Logger(CronService.name);
 
-  public constructor(private readonly moduleRef: ModuleRef) {
-    console.log('CronService initialized');
-  }
+  public constructor(private readonly moduleRef: ModuleRef) {}
 
   @Cron(CronExpression.EVERY_HOUR)
   public async runEveryHour() {
@@ -81,8 +80,6 @@ export class CronService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   public async runAutomatedDividendImportEveryMinute() {
-    console.log('CRON: Starting automated dividend import');
-
     const configurationService = this.moduleRef.get(ConfigurationService, {
       strict: false
     });
@@ -98,16 +95,11 @@ export class CronService {
     }
 
     try {
-      const result =
-        await automatedDividendImportService.importDividendsForAllUsers();
-
-      console.log(
-        `CRON: Automated dividend import finished. ${result} dividends imported`
-      );
+      await automatedDividendImportService.importDividendsForAllUsers();
     } catch (error) {
-      console.error(
-        'CRON: Automated dividend import failed',
-        error
+      this.logger.error(
+        'Automated dividend import failed',
+        error?.stack
       );
     }
   }

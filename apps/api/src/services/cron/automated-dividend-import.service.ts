@@ -35,11 +35,13 @@ export class AutomatedDividendImportService {
       return 0;
     }
 
-    this.logger.log(
-      'Starting automated dividend import for all active users...'
-    );
-
+    let holdingsWithoutAssetProfile = 0;
+    let totalCandidateDividends = 0;
+    let totalDuplicateDividends = 0;
+    let totalHoldings = 0;
     let totalImportedDividends = 0;
+    let totalInvalidDividends = 0;
+    let totalUsers = 0;
 
     try {
       const users = await this.prismaService.user.findMany({
@@ -47,6 +49,8 @@ export class AutomatedDividendImportService {
           id: true
         }
       });
+
+      totalUsers = users.length;
 
       for (const user of users) {
         const accounts = await this.prismaService.account.findMany({
@@ -72,9 +76,12 @@ export class AutomatedDividendImportService {
             userId: user.id
           });
 
+          totalHoldings += holdings.length;
+
           for (const holding of holdings) {
             const { dataSource, symbol } = holding.assetProfile ?? {};
             if (!dataSource || !symbol) {
+              holdingsWithoutAssetProfile++;
               continue;
             }
 
@@ -85,8 +92,16 @@ export class AutomatedDividendImportService {
               userId: user.id
             });
 
+            totalCandidateDividends += candidateDividends.length;
+
             for (const dividendActivity of candidateDividends) {
-              if (dividendActivity.error || dividendActivity.quantity <= 0) {
+              if (dividendActivity.error) {
+                totalDuplicateDividends++;
+                continue;
+              }
+
+              if (dividendActivity.quantity <= 0) {
+                totalInvalidDividends++;
                 continue;
               }
 
@@ -149,7 +164,7 @@ export class AutomatedDividendImportService {
     }
 
     this.logger.log(
-      `Automated dividend import finished. Total new dividends imported: ${totalImportedDividends}`
+      `Automated dividend import: users=${totalUsers}, holdings=${totalHoldings}, candidates=${totalCandidateDividends}, duplicates=${totalDuplicateDividends}, invalid=${totalInvalidDividends}, missingAssetProfile=${holdingsWithoutAssetProfile}, imported=${totalImportedDividends}`
     );
 
     return totalImportedDividends;
