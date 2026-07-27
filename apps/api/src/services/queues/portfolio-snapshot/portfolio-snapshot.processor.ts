@@ -73,13 +73,6 @@ export class PortfolioSnapshotProcessor {
 
       const snapshot = await portfolioCalculator.computeSnapshot();
 
-      this.logger.log(
-        `Portfolio snapshot calculation of user '${job.data.userId}' has been completed in ${(
-          (performance.now() - startTime) /
-          1000
-        ).toFixed(3)} seconds`
-      );
-
       const expiration = addMilliseconds(
         new Date(),
         (snapshot?.errors?.length ?? 0) === 0
@@ -87,7 +80,7 @@ export class PortfolioSnapshotProcessor {
           : 0
       );
 
-      this.redisCacheService.set(
+      await this.redisCacheService.set(
         this.redisCacheService.getPortfolioSnapshotKey({
           filters: job.data.filters,
           userId: job.data.userId
@@ -99,11 +92,21 @@ export class PortfolioSnapshotProcessor {
         CACHE_TTL_INFINITE
       );
 
+      this.logger.log(
+        `Portfolio snapshot calculation of user '${job.data.userId}' has been completed in ${(
+          (performance.now() - startTime) /
+          1000
+        ).toFixed(3)} seconds`
+      );
+
       return snapshot;
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error(
+        `Could not cache portfolio snapshot for user '${job.data.userId}': ${error?.message ?? error}`,
+        error?.stack
+      );
 
-      throw new Error(error);
+      throw error;
     }
   }
 }
