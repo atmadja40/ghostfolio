@@ -14,7 +14,7 @@ import {
 import {
   Activity,
   DataProviderInfo,
-  EnhancedSymbolProfile,
+  EnhancedAssetProfile,
   Filter,
   LineChartItem,
   NullableLineChartItem,
@@ -121,7 +121,7 @@ export class GfHoldingDetailDialogComponent implements OnInit {
   protected activitiesCount: number;
   protected assetClass: string;
   protected assetProfile: Pick<
-    EnhancedSymbolProfile,
+    EnhancedAssetProfile,
     | 'assetClass'
     | 'assetSubClass'
     | 'countries'
@@ -581,9 +581,10 @@ export class GfHoldingDetailDialogComponent implements OnInit {
         if (state?.user) {
           this.user = state.user;
 
-          this.hasPermissionToCreateOwnTag =
-            hasPermission(this.user.permissions, permissions.createOwnTag) &&
-            (this.user?.settings?.isExperimentalFeatures ?? false);
+          this.hasPermissionToCreateOwnTag = hasPermission(
+            this.user?.permissions,
+            permissions.createOwnTag
+          );
 
           this.tagsAvailable =
             this.user?.tags?.map((tag) => {

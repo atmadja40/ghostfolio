@@ -48,7 +48,7 @@ import {
   AccountsResponse,
   Activity,
   AssetProfileIdentifier,
-  EnhancedSymbolProfile,
+  EnhancedAssetProfile,
   Filter,
   HistoricalDataItem,
   InvestmentItem,
@@ -542,12 +542,6 @@ export class PortfolioService {
 
     let filteredValueInBaseCurrency = currentValueInBaseCurrency;
 
-    if (!this.activitiesService.areCashActivitiesExcludedByFilters(filters)) {
-      filteredValueInBaseCurrency = filteredValueInBaseCurrency.plus(
-        cashDetails.balanceInBaseCurrency
-      );
-    }
-
     const assetProfileIdentifiers = positions.map(({ dataSource, symbol }) => {
       return {
         dataSource,
@@ -563,7 +557,7 @@ export class PortfolioService {
     symbolProfiles.push(...cashSymbolProfiles);
 
     const symbolProfileMap: {
-      [assetProfileIdentifier: string]: EnhancedSymbolProfile;
+      [assetProfileIdentifier: string]: EnhancedAssetProfile;
     } = {};
 
     for (const symbolProfile of symbolProfiles) {
@@ -800,7 +794,7 @@ export class PortfolioService {
         holdings: [],
         name: symbol,
         sectors: []
-      } as EnhancedSymbolProfile);
+      } as EnhancedAssetProfile);
 
     const portfolioCalculator = this.calculatorFactory.createCalculator({
       activities,
@@ -1041,6 +1035,7 @@ export class PortfolioService {
     if (accountBalanceItems.length === 0 && activities.length === 0) {
       return {
         chart: [],
+        dateOfFirstActivity: undefined,
         firstOrderDate: undefined,
         hasErrors: false,
         performance: {
@@ -1098,6 +1093,7 @@ export class PortfolioService {
       chart,
       errors,
       hasErrors,
+      dateOfFirstActivity: parseDate(historicalData[0]?.date),
       firstOrderDate: parseDate(historicalData[0]?.date),
       performance: {
         netPerformance,
@@ -1586,7 +1582,7 @@ export class PortfolioService {
       ...new Set(cashDetails.accounts.map(({ currency }) => currency))
     ];
 
-    return cashSymbols.map<EnhancedSymbolProfile>((currency) => {
+    return cashSymbols.map<EnhancedAssetProfile>((currency) => {
       const account = cashDetails.accounts.find(
         ({ currency: accountCurrency }) => {
           return accountCurrency === currency;
@@ -1738,11 +1734,7 @@ export class PortfolioService {
     };
   }
 
-  private getMarkets({
-    assetProfile
-  }: {
-    assetProfile: EnhancedSymbolProfile;
-  }) {
+  private getMarkets({ assetProfile }: { assetProfile: EnhancedAssetProfile }) {
     const markets = {
       [UNKNOWN_KEY]: 0,
       developedMarkets: 0,
@@ -1906,9 +1898,10 @@ export class PortfolioService {
     }
 
     const {
-      currentValueInBaseCurrency,
+      totalCashInBaseCurrency,
       totalInvestment,
-      totalInvestmentWithCurrencyEffect
+      totalInvestmentWithCurrencyEffect,
+      currentValueInBaseCurrency: totalAssetsInBaseCurrency
     } = await portfolioCalculator.getSnapshot();
 
     const { performance } = await this.getPerformance({
@@ -1917,6 +1910,7 @@ export class PortfolioService {
     });
 
     const {
+      currentValueInBaseCurrency,
       netPerformance,
       netPerformancePercentage,
       netPerformancePercentageWithCurrencyEffect,
@@ -1983,8 +1977,12 @@ export class PortfolioService {
       .plus(totalOfExcludedActivities)
       .toNumber();
 
-    const netWorth = new Big(balanceInBaseCurrency)
-      .plus(currentValueInBaseCurrency)
+    // Exclude emergency fund from the financial independence calculation
+    const fireWealthInBaseCurrency = new Big(totalAssetsInBaseCurrency).minus(
+      totalEmergencyFund
+    );
+
+    const netWorth = new Big(totalAssetsInBaseCurrency)
       .plus(excludedAccountsAndActivities)
       .minus(liabilities)
       .toNumber();
@@ -2008,6 +2006,7 @@ export class PortfolioService {
       annualizedPerformancePercent,
       annualizedPerformancePercentWithCurrencyEffect,
       cash,
+      currentValueInBaseCurrency,
       dateOfFirstActivity,
       excludedAccountsAndActivities,
       netPerformance,
@@ -2019,7 +2018,6 @@ export class PortfolioService {
       activityCount: activities.filter(({ type }) => {
         return ['BUY', 'SELL'].includes(type);
       }).length,
-      currentValueInBaseCurrency: currentValueInBaseCurrency.toNumber(),
       dividendInBaseCurrency: dividendInBaseCurrency.toNumber(),
       emergencyFund: {
         assets: emergencyFundHoldingsValueInBaseCurrency,
@@ -2035,9 +2033,9 @@ export class PortfolioService {
         : undefined,
       fireWealth: {
         today: {
-          valueInBaseCurrency: new Big(currentValueInBaseCurrency)
-            .minus(emergencyFundHoldingsValueInBaseCurrency)
-            .toNumber()
+          valueInBaseCurrency: fireWealthInBaseCurrency.gt(0)
+            ? fireWealthInBaseCurrency.toNumber()
+            : 0
         }
       },
       grossPerformance: new Big(netPerformance).plus(fees).toNumber(),
@@ -2048,6 +2046,8 @@ export class PortfolioService {
         .toNumber(),
       interestInBaseCurrency: interest.toNumber(),
       liabilitiesInBaseCurrency: liabilities.toNumber(),
+      totalAssetsInBaseCurrency: totalAssetsInBaseCurrency.toNumber(),
+      totalCashInBaseCurrency: totalCashInBaseCurrency.toNumber(),
       totalInvestment: totalInvestment.toNumber(),
       totalInvestmentValueWithCurrencyEffect:
         totalInvestmentWithCurrencyEffect.toNumber(),

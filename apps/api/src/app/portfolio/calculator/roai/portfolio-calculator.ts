@@ -1,4 +1,5 @@
 import { PortfolioCalculator } from '@ghostfolio/api/app/portfolio/calculator/portfolio-calculator';
+import { PortfolioCalculatorPosition } from '@ghostfolio/api/app/portfolio/interfaces/portfolio-calculator-position.interface';
 import { PortfolioOrderItem } from '@ghostfolio/api/app/portfolio/interfaces/portfolio-order-item.interface';
 import { getFactor } from '@ghostfolio/api/helper/portfolio.helper';
 import { getIntervalFromDateRange } from '@ghostfolio/common/calculation-helper';
@@ -7,7 +8,7 @@ import {
   AssetProfileIdentifier,
   SymbolMetrics
 } from '@ghostfolio/common/interfaces';
-import { PortfolioSnapshot, TimelinePosition } from '@ghostfolio/common/models';
+import { PortfolioSnapshot } from '@ghostfolio/common/models';
 import { DateRange } from '@ghostfolio/common/types';
 import { PerformanceCalculationType } from '@ghostfolio/common/types/performance-calculation-type.type';
 
@@ -26,7 +27,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
   private chartDates: string[];
 
   protected calculateOverallPerformance(
-    positions: TimelinePosition[]
+    positions: PortfolioCalculatorPosition[]
   ): PortfolioSnapshot {
     let currentValueInBaseCurrency = new Big(0);
     let grossPerformance = new Big(0);
@@ -40,23 +41,23 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
     let totalTimeWeightedInvestment = new Big(0);
     let totalTimeWeightedInvestmentWithCurrencyEffect = new Big(0);
 
-    for (const currentPosition of positions.filter(
-      ({ includeInTotalAssetValue }) => {
-        return includeInTotalAssetValue;
-      }
-    )) {
-      if (currentPosition.feeInBaseCurrency) {
-        totalFeesWithCurrencyEffect = totalFeesWithCurrencyEffect.plus(
-          currentPosition.feeInBaseCurrency
-        );
-      }
-
+    for (const currentPosition of positions) {
       if (currentPosition.valueInBaseCurrency) {
         currentValueInBaseCurrency = currentValueInBaseCurrency.plus(
           currentPosition.valueInBaseCurrency
         );
       } else {
         hasErrors = true;
+      }
+
+      if (!currentPosition.includeInPerformance) {
+        continue;
+      }
+
+      if (currentPosition.feeInBaseCurrency) {
+        totalFeesWithCurrencyEffect = totalFeesWithCurrencyEffect.plus(
+          currentPosition.feeInBaseCurrency
+        );
       }
 
       if (currentPosition.investment) {
@@ -117,6 +118,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
       createdAt: new Date(),
       errors: [],
       historicalData: [],
+      totalCashInBaseCurrency: new Big(0),
       totalLiabilitiesWithCurrencyEffect: new Big(0)
     };
   }
