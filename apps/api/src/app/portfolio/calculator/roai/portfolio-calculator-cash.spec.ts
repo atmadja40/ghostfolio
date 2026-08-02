@@ -166,6 +166,14 @@ describe('PortfolioCalculator', () => {
               id: randomUUID(),
               value: 2000,
               valueInBaseCurrency: 1800
+            },
+            {
+              // Ignored future account balance
+              accountId,
+              date: parseDate('2050-12-31'),
+              id: randomUUID(),
+              value: 0,
+              valueInBaseCurrency: 0
             }
           ]
         });
@@ -178,7 +186,6 @@ describe('PortfolioCalculator', () => {
             createdAt: parseDate('2023-12-31'),
             currency: 'USD',
             id: accountId,
-            isExcluded: false,
             name: 'USD',
             platformId: null,
             updatedAt: parseDate('2023-12-31'),
@@ -354,7 +361,6 @@ describe('PortfolioCalculator', () => {
             createdAt: parseDate('2023-12-31'),
             currency: 'CHF',
             id: accountId,
-            isExcluded: false,
             name: 'CHF',
             platformId: null,
             updatedAt: parseDate('2023-12-31'),
@@ -486,7 +492,6 @@ describe('PortfolioCalculator', () => {
             createdAt: parseDate('2023-12-31'),
             currency: 'CHF',
             id: accountId,
-            isExcluded: false,
             name: 'CHF',
             platformId: null,
             updatedAt: parseDate('2023-12-31'),
