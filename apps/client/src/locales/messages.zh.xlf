@@ -2932,7 +2932,7 @@
         <target state="translated">从</target>
         <context-group purpose="location">
           <context context-type="sourcefile">apps/client/src/app/pages/accounts/transfer-balance/transfer-balance-dialog.component.ts</context>
-          <context context-type="linenumber">48</context>
+          <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
       <trans-unit id="1640609344969975994" datatype="html">
@@ -2940,7 +2940,7 @@
         <target state="translated">到</target>
         <context-group purpose="location">
           <context context-type="sourcefile">apps/client/src/app/pages/accounts/transfer-balance/transfer-balance-dialog.component.ts</context>
-          <context context-type="linenumber">49</context>
+          <context context-type="linenumber">54</context>
         </context-group>
       </trans-unit>
       <trans-unit id="8402696305361715603" datatype="html">
