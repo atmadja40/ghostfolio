@@ -44,3 +44,18 @@ export const LogoByUrl: Story = {
     url: 'https://ghostfol.io'
   }
 };
+
+export const LogoOnError: Story = {
+  args: {
+    size: 'large',
+    tooltip: 'Unknown',
+    url: 'https://unknown.ghostfol.io'
+  }
+};
+
+export const Placeholder: Story = {
+  args: {
+    hasPlaceholder: true,
+    size: 'large'
+  }
+};

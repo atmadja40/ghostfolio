@@ -101,10 +101,7 @@ export class PortfolioSnapshotProcessor {
 
       return snapshot;
     } catch (error) {
-      this.logger.error(
-        `Could not cache portfolio snapshot for user '${job.data.userId}': ${error?.message ?? error}`,
-        error?.stack
-      );
+this.logger.error(error.message);
 
       throw error;
     }

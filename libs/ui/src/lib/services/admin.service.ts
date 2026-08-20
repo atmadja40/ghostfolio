@@ -4,7 +4,9 @@ import {
   HEADER_KEY_TOKEN
 } from '@ghostfolio/common/config';
 import {
+  CreateAssetProfileSplitDto,
   CreatePlatformDto,
+  MergeAssetProfileDto,
   UpdateAssetProfileDto,
   UpdatePlatformDto
 } from '@ghostfolio/common/dtos';
@@ -23,7 +25,7 @@ import { GF_ENVIRONMENT } from '@ghostfolio/ui/environment';
 
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { MarketData, Platform } from '@prisma/client';
+import { AssetProfileSplit, MarketData, Platform } from '@prisma/client';
 import { JobStatus } from 'bull';
 import { isNumber } from 'lodash';
 
@@ -59,6 +61,16 @@ export class AdminService {
 
   public deletePlatform(aId: string) {
     return this.http.delete<void>(`/api/v1/platform/${aId}`);
+  }
+
+  public deleteAssetProfileSplit({
+    dataSource,
+    id,
+    symbol
+  }: AssetProfileIdentifier & { id: string }) {
+    return this.http.delete<void>(
+      `/api/v1/asset-profiles/${dataSource}/${encodeURIComponent(symbol)}/splits/${id}`
+    );
   }
 
   public deleteProfileData({ dataSource, symbol }: AssetProfileIdentifier) {
@@ -177,6 +189,16 @@ export class AdminService {
     return this.http.get<DataProviderHistoricalResponse>(url);
   }
 
+  public mergeAssetProfile(
+    { dataSource, symbol }: AssetProfileIdentifier,
+    targetAssetProfile: MergeAssetProfileDto
+  ) {
+    return this.http.post<EnhancedAssetProfile>(
+      `/api/v1/admin/profile-data/${dataSource}/${encodeURIComponent(symbol)}/merge`,
+      targetAssetProfile
+    );
+  }
+
   public patchAssetProfile(
     { dataSource, symbol }: AssetProfileIdentifier,
     {
@@ -214,6 +236,17 @@ export class AdminService {
         symbolMapping,
         url
       }
+    );
+  }
+
+  public postAssetProfileSplit({
+    dataSource,
+    split,
+    symbol
+  }: AssetProfileIdentifier & { split: CreateAssetProfileSplitDto }) {
+    return this.http.post<AssetProfileSplit>(
+      `/api/v1/asset-profiles/${dataSource}/${encodeURIComponent(symbol)}/splits`,
+      split
     );
   }
 

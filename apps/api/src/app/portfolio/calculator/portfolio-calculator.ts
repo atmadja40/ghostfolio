@@ -1,4 +1,5 @@
 import { CurrentRateService } from '@ghostfolio/api/app/portfolio/current-rate.service';
+import { PortfolioSnapshotComputationError } from '@ghostfolio/api/app/portfolio/errors/portfolio-snapshot-computation.error';
 import { PortfolioCalculatorPosition } from '@ghostfolio/api/app/portfolio/interfaces/portfolio-calculator-position.interface';
 import { PortfolioOrder } from '@ghostfolio/api/app/portfolio/interfaces/portfolio-order.interface';
 import { PortfolioSnapshotValue } from '@ghostfolio/api/app/portfolio/interfaces/snapshot-value.interface';
@@ -60,15 +61,20 @@ import {
   startOfYear,
   subDays
 } from 'date-fns';
-import { isNumber, sortBy, sum, uniqBy } from 'lodash';
+import { groupBy, isNumber, sortBy, sum, uniqBy } from 'lodash';
 
 export abstract class PortfolioCalculator {
   protected static readonly ENABLE_LOGGING = false;
+
+  private static readonly MAX_INITIALIZATION_ATTEMPTS = 3;
 
   protected readonly logger = new Logger(PortfolioCalculator.name);
 
   protected accountBalanceItems: HistoricalDataItem[];
   protected activities: PortfolioOrder[];
+  protected activitiesBySymbol: {
+    [symbol: string]: PortfolioOrder[];
+  };
 
   private configurationService: ConfigurationService;
   private currency: string;
@@ -159,6 +165,10 @@ export abstract class PortfolioCalculator {
         return a.date?.localeCompare(b.date);
       });
 
+    this.activitiesBySymbol = groupBy(this.activities, ({ assetProfile }) => {
+      return assetProfile.symbol;
+    });
+
     this.portfolioSnapshotService = portfolioSnapshotService;
     this.redisCacheService = redisCacheService;
     this.userId = userId;
@@ -174,6 +184,11 @@ export abstract class PortfolioCalculator {
     this.computeTransactionPoints();
 
     this.snapshotPromise = this.initialize();
+
+    // Mark the rejection as handled to prevent an unhandled promise rejection
+    // in case the snapshot promise is never awaited. Consumers awaiting it
+    // still receive the error.
+    this.snapshotPromise.catch(() => undefined);
   }
 
   protected abstract calculateOverallPerformance(
@@ -1124,7 +1139,7 @@ export abstract class PortfolioCalculator {
   }
 
   @LogPerformance
-  private async initialize() {
+  private async initialize(attempt = 1) {
     const startTimeTotal = performance.now();
 
     let cachedPortfolioSnapshot: PortfolioSnapshot;
@@ -1183,6 +1198,12 @@ export abstract class PortfolioCalculator {
         });
       }
     } else {
+      if (attempt > PortfolioCalculator.MAX_INITIALIZATION_ATTEMPTS) {
+        throw new PortfolioSnapshotComputationError(
+          `Portfolio snapshot of user '${this.userId}' could not be computed after ${PortfolioCalculator.MAX_INITIALIZATION_ATTEMPTS} attempts`
+        );
+      }
+
       // Wait for computation
       await this.portfolioSnapshotService.addJobToQueue({
         data: {
@@ -1205,7 +1226,7 @@ export abstract class PortfolioCalculator {
         await job.finished();
       }
 
-      await this.initialize();
+      await this.initialize(attempt + 1);
     }
   }
 }

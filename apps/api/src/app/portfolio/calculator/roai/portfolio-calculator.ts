@@ -3,7 +3,7 @@ import { PortfolioCalculatorPosition } from '@ghostfolio/api/app/portfolio/inter
 import { PortfolioOrderItem } from '@ghostfolio/api/app/portfolio/interfaces/portfolio-order-item.interface';
 import { getFactor } from '@ghostfolio/api/helper/portfolio.helper';
 import { getIntervalFromDateRange } from '@ghostfolio/common/calculation-helper';
-import { DATE_FORMAT } from '@ghostfolio/common/helper';
+import { DATE_FORMAT, parseDate } from '@ghostfolio/common/helper';
 import {
   AssetProfileIdentifier,
   SymbolMetrics
@@ -21,7 +21,7 @@ import {
   isBefore,
   isThisYear
 } from 'date-fns';
-import { cloneDeep, sortBy } from 'lodash';
+import { sortBy } from 'lodash';
 
 export class RoaiPortfolioCalculator extends PortfolioCalculator {
   private chartDates: string[];
@@ -187,17 +187,18 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
     let totalInvestmentWithCurrencyEffect = new Big(0);
     let totalLiabilities = new Big(0);
     let totalLiabilitiesInBaseCurrency = new Big(0);
+    let totalQuantity = new Big(0);
     let totalQuantityFromBuyTransactions = new Big(0);
-    let totalUnits = new Big(0);
     let valueAtStartDate: Big;
     let valueAtStartDateWithCurrencyEffect: Big;
 
-    // Clone orders to keep the original values in this.orders
-    let orders: PortfolioOrderItem[] = cloneDeep(
-      this.activities.filter(({ assetProfile }) => {
-        return assetProfile.symbol === symbol;
-      })
-    );
+    // Copy the items as they are enriched below. A shallow copy is sufficient
+    // because only top-level properties are written.
+    let orders: PortfolioOrderItem[] = (
+      this.activitiesBySymbol[symbol] ?? []
+    ).map((activity) => {
+      return { ...activity };
+    });
 
     const isCash = orders[0]?.assetProfile?.assetSubClass === 'CASH';
 
@@ -268,7 +269,8 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
       }
     }
 
-    const dateOfFirstTransaction = new Date(orders[0].date);
+    const dateStringOfFirstActivity = orders[0].date;
+    const dateOfFirstActivity = parseDate(dateStringOfFirstActivity);
 
     const endDateString = format(end, DATE_FORMAT);
     const startDateString = format(start, DATE_FORMAT);
@@ -276,7 +278,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
     const unitPriceAtStartDate = marketSymbolMap[startDateString]?.[symbol];
     let unitPriceAtEndDate = marketSymbolMap[endDateString]?.[symbol];
 
-    let latestActivity = orders.at(-1);
+    const latestActivity = orders.at(-1);
 
     if (
       dataSource === 'MANUAL' &&
@@ -293,12 +295,12 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
 
     if (
       !unitPriceAtEndDate ||
-      (!unitPriceAtStartDate && isBefore(dateOfFirstTransaction, start))
+      (!unitPriceAtStartDate && isBefore(dateOfFirstActivity, start))
     ) {
-      // A missing market price can only affect the units which are held. The
-      // dividends, the interest and the liabilities do not hold any units and
-      // are therefore not in error.
-      const hasActivitiesWithUnits = orders.some(({ type }) => {
+      // A missing market price can only affect the quantity which is held. The
+      // dividends, the interest and the liabilities do not hold any quantity
+      // and are therefore not in error.
+      const hasActivitiesWithQuantity = orders.some(({ type }) => {
         return ['BUY', 'SELL'].includes(type);
       });
 
@@ -316,7 +318,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
         grossPerformancePercentage: new Big(0),
         grossPerformancePercentageWithCurrencyEffect: new Big(0),
         grossPerformanceWithCurrencyEffect: new Big(0),
-        hasErrors: hasActivitiesWithUnits,
+        hasErrors: hasActivitiesWithQuantity,
         initialValue: new Big(0),
         initialValueWithCurrencyEffect: new Big(0),
         investmentValuesAccumulated: {},
@@ -367,7 +369,9 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
       unitPrice: unitPriceAtEndDate
     });
 
-    let lastUnitPrice: Big;
+    // Fall back to the unit price at the end date for the chart dates before
+    // the first known market price of the symbol
+    let lastUnitPrice = unitPriceAtEndDate;
 
     const ordersByDate: { [date: string]: PortfolioOrderItem[] } = {};
 
@@ -393,23 +397,24 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
             marketSymbolMap[dateString]?.[symbol] ?? lastUnitPrice;
         }
       } else {
-        orders.push({
-          assetProfile,
-          date: dateString,
-          fee: new Big(0),
-          feeInBaseCurrency: new Big(0),
-          quantity: new Big(0),
-          type: 'BUY',
-          unitPrice: marketSymbolMap[dateString]?.[symbol] ?? lastUnitPrice,
-          unitPriceFromMarketData:
-            marketSymbolMap[dateString]?.[symbol] ?? lastUnitPrice
-        });
+        const unitPrice =
+          marketSymbolMap[dateString]?.[symbol] ?? lastUnitPrice;
+
+        if (dateString >= dateStringOfFirstActivity) {
+          orders.push({
+            assetProfile,
+            unitPrice,
+            date: dateString,
+            fee: new Big(0),
+            feeInBaseCurrency: new Big(0),
+            quantity: new Big(0),
+            type: 'BUY',
+            unitPriceFromMarketData: unitPrice
+          });
+        }
+
+        lastUnitPrice = unitPrice;
       }
-
-      latestActivity = orders.at(-1);
-
-      lastUnitPrice =
-        latestActivity.unitPriceFromMarketData ?? latestActivity.unitPrice;
     }
 
     // Sort orders so that the start and end placeholder order are at the correct
@@ -489,12 +494,12 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
         order.unitPriceFromMarketData?.mul(exchangeRateAtOrderDate ?? 1) ??
         new Big(0);
 
-      const valueOfInvestmentBeforeTransaction = totalUnits.mul(
+      const valueOfInvestmentBeforeTransaction = totalQuantity.mul(
         marketPriceInBaseCurrency
       );
 
       const valueOfInvestmentBeforeTransactionWithCurrencyEffect =
-        totalUnits.mul(marketPriceInBaseCurrencyWithCurrencyEffect);
+        totalQuantity.mul(marketPriceInBaseCurrencyWithCurrencyEffect);
 
       if (!investmentAtStartDate && i >= indexOfStartOrder) {
         investmentAtStartDate = totalInvestment ?? new Big(0);
@@ -531,16 +536,19 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
             transactionInvestmentWithCurrencyEffect
           );
       } else if (order.type === 'SELL') {
-        if (totalUnits.gt(0)) {
+        if (totalQuantity.gt(0)) {
+          const remainingQuantity = totalQuantity.minus(order.quantity);
+
           transactionInvestment = totalInvestment
-            .div(totalUnits)
-            .mul(order.quantity)
-            .mul(getFactor(order.type));
+            .mul(remainingQuantity)
+            .div(totalQuantity)
+            .minus(totalInvestment);
+
           transactionInvestmentWithCurrencyEffect =
             totalInvestmentWithCurrencyEffect
-              .div(totalUnits)
-              .mul(order.quantity)
-              .mul(getFactor(order.type));
+              .mul(remainingQuantity)
+              .div(totalQuantity)
+              .minus(totalInvestmentWithCurrencyEffect);
         }
       }
 
@@ -589,11 +597,13 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
         order.feeInBaseCurrencyWithCurrencyEffect ?? 0
       );
 
-      totalUnits = totalUnits.plus(order.quantity.mul(getFactor(order.type)));
+      totalQuantity = totalQuantity.plus(
+        order.quantity.mul(getFactor(order.type))
+      );
 
-      const valueOfInvestment = totalUnits.mul(marketPriceInBaseCurrency);
+      const valueOfInvestment = totalQuantity.mul(marketPriceInBaseCurrency);
 
-      const valueOfInvestmentWithCurrencyEffect = totalUnits.mul(
+      const valueOfInvestmentWithCurrencyEffect = totalQuantity.mul(
         marketPriceInBaseCurrencyWithCurrencyEffect
       );
 
@@ -634,7 +644,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
             totalQuantityFromBuyTransactions
           );
 
-      if (totalUnits.eq(0)) {
+      if (totalQuantity.eq(0)) {
         // Reset tracking variables when position is fully closed
         totalInvestmentFromBuyTransactions = new Big(0);
         totalInvestmentFromBuyTransactionsWithCurrencyEffect = new Big(0);
@@ -827,14 +837,14 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
           )
         : new Big(0);
 
-    const feesPerUnit = totalUnits.gt(0)
-      ? fees.minus(feesAtStartDate).div(totalUnits)
+    const feesPerUnit = totalQuantity.gt(0)
+      ? fees.minus(feesAtStartDate).div(totalQuantity)
       : new Big(0);
 
-    const feesPerUnitWithCurrencyEffect = totalUnits.gt(0)
+    const feesPerUnitWithCurrencyEffect = totalQuantity.gt(0)
       ? feesWithCurrencyEffect
           .minus(feesAtStartDateWithCurrencyEffect)
-          .div(totalUnits)
+          .div(totalQuantity)
       : new Big(0);
 
     const netPerformancePercentage =
@@ -1006,7 +1016,7 @@ export class RoaiPortfolioCalculator extends PortfolioCalculator {
       grossPerformance: totalGrossPerformance,
       grossPerformanceWithCurrencyEffect:
         totalGrossPerformanceWithCurrencyEffect,
-      hasErrors: totalUnits.gt(0) && (!initialValue || !unitPriceAtEndDate),
+      hasErrors: totalQuantity.gt(0) && (!initialValue || !unitPriceAtEndDate),
       netPerformance: totalNetPerformance,
       timeWeightedInvestment:
         timeWeightedAverageInvestmentBetweenStartAndEndDate,

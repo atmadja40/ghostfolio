@@ -29,7 +29,7 @@ import {
 import { InjectQueue } from '@nestjs/bull';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { JobOptions, Queue } from 'bull';
+import { Job, JobOptions, Queue } from 'bull';
 import { format, min, subDays, subMilliseconds, subYears } from 'date-fns';
 import { isEmpty } from 'lodash';
 import ms, { StringValue } from 'ms';
@@ -272,7 +272,12 @@ export class DataGatheringService {
     });
   }
 
-  public async gatherSymbol({ dataSource, date, symbol }: DataGatheringItem) {
+  public async gatherSymbol({
+    dataSource,
+    date,
+    force = true,
+    symbol
+  }: DataGatheringItem) {
     const dataGatheringItems = (await this.getSymbolsMax())
       .filter((dataGatheringItem) => {
         return (
@@ -285,9 +290,9 @@ export class DataGatheringService {
         date: date ?? item.date
       }));
 
-    await this.gatherSymbols({
+    return this.gatherSymbols({
       dataGatheringItems,
-      force: true,
+      force,
       priority: DATA_GATHERING_QUEUE_PRIORITY_HIGH
     });
   }
@@ -322,7 +327,7 @@ export class DataGatheringService {
         });
       }
     } catch (error) {
-      this.logger.error(error);
+      this.logger.error(error.message);
     } finally {
       return undefined;
     }
@@ -336,8 +341,8 @@ export class DataGatheringService {
     dataGatheringItems: DataGatheringItem[];
     force?: boolean;
     priority: number;
-  }) {
-    await this.addJobsToQueue(
+  }): Promise<Job[]> {
+    return this.addJobsToQueue(
       dataGatheringItems.map(({ dataSource, date, symbol }) => {
         return {
           data: {

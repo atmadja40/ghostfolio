@@ -128,10 +128,17 @@ export class GfHomeWatchlistComponent implements OnInit {
     this.dataService
       .fetchWatchlist()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ watchlist }) => {
-        this.watchlist = watchlist;
+      .subscribe({
+        error: () => {
+          this.watchlist = [];
 
-        this.changeDetectorRef.markForCheck();
+          this.changeDetectorRef.markForCheck();
+        },
+        next: ({ watchlist }) => {
+          this.watchlist = watchlist ?? [];
+
+          this.changeDetectorRef.markForCheck();
+        }
       });
   }
 
@@ -146,7 +153,6 @@ export class GfHomeWatchlistComponent implements OnInit {
           GfCreateWatchlistItemDialogComponent,
           CreateWatchlistItemDialogParams
         >(GfCreateWatchlistItemDialogComponent, {
-          autoFocus: false,
           data: {
             deviceType: this.deviceType(),
             locale: this.user?.settings?.locale ?? DEFAULT_LOCALE

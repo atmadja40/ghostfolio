@@ -15,6 +15,7 @@ import {
   User
 } from '@ghostfolio/common/interfaces';
 import { hasPermission, permissions } from '@ghostfolio/common/permissions';
+import { hasScope, scopes } from '@ghostfolio/common/scopes';
 import { GfAccountBalancesComponent } from '@ghostfolio/ui/account-balances';
 import { GfActivitiesTableComponent } from '@ghostfolio/ui/activities-table';
 import { GfDialogFooterComponent } from '@ghostfolio/ui/dialog-footer';
@@ -102,6 +103,7 @@ export class GfAccountDetailDialogComponent implements OnInit {
   protected holdings: PortfolioPosition[];
   protected interestInBaseCurrency: number;
   protected interestInBaseCurrencyPrecision = 2;
+  protected isLoading = true;
   protected isLoadingChart: boolean;
   protected name: string | null;
   protected pageIndex = 0;
@@ -171,6 +173,8 @@ export class GfAccountDetailDialogComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.initialize();
+
+        this.refreshUser();
       });
   }
 
@@ -190,6 +194,8 @@ export class GfAccountDetailDialogComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.initialize();
+
+        this.refreshUser();
       });
   }
 
@@ -224,7 +230,8 @@ export class GfAccountDetailDialogComponent implements OnInit {
 
   protected showValuesInPercentage() {
     return (
-      this.data.hasImpersonationId || this.user?.settings?.isRestrictedView
+      !hasScope(this.user?.scopes, scopes.portfolioReadValues) ||
+      this.user?.settings?.isRestrictedView
     );
   }
 
@@ -302,6 +309,8 @@ export class GfAccountDetailDialogComponent implements OnInit {
 
           this.valueInBaseCurrency = valueInBaseCurrency;
 
+          this.isLoading = false;
+
           this.changeDetectorRef.markForCheck();
         }
       );
@@ -341,8 +350,7 @@ export class GfAccountDetailDialogComponent implements OnInit {
             }
           ],
           range: DEFAULT_DATE_RANGE,
-          withExcludedAccounts: true,
-          withItems: true
+          withExcludedAccounts: true
         })
         .pipe(takeUntilDestroyed(this.destroyRef))
     }).subscribe({
@@ -403,5 +411,12 @@ export class GfAccountDetailDialogComponent implements OnInit {
     this.fetchActivities();
     this.fetchChart();
     this.fetchPortfolioHoldings();
+  }
+
+  private refreshUser() {
+    this.userService
+      .get(true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe();
   }
 }

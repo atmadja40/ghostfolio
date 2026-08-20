@@ -14,7 +14,9 @@ model Access {
   granteeUser   User?              @relation("accessGet", fields: [granteeUserId], onDelete: Cascade, references: [id])
   granteeUserId String?
   id            String             @id @default(uuid())
+  /// @deprecated Use the scopes instead
   permissions   AccessPermission[] @default([READ_RESTRICTED])
+  scopes        String[]           @default([])
   settings      Json               @default("{}")
   updatedAt     DateTime           @updatedAt
   userId        String
@@ -27,7 +29,6 @@ model Access {
 
 model Account {
   activities Order[]
-  balance    Float            @default(0)
   balances   AccountBalance[]
   comment    String?
   createdAt  DateTime         @default(now())
@@ -116,6 +117,33 @@ model AssetProfileResolution {
   @@unique([dataSourceOrigin, symbolOrigin])
 }
 
+/// A stock split of an asset profile. The numerator is the number of shares
+/// held after the split, the denominator the number of shares held before, for
+/// example 4 and 1 for a 4:1 split or 1 and 10 for a 1:10 reverse split.
+///
+/// The ratio is stored as two integers instead of the resulting factor, so that
+/// it stays exact, for example 1/3 for a 1:3 reverse split.
+///
+/// Activities before the date are adjusted by the ratio: the quantity is
+/// multiplied by it and the unit price divided by it, so that the total value
+/// of an activity stays the same.
+///
+/// Market data is already split-adjusted by the data providers and must not be
+/// adjusted again.
+model AssetProfileSplit {
+  createdAt       DateTime      @default(now())
+  date            DateTime
+  denominator     Int
+  id              String        @id @default(uuid())
+  numerator       Int
+  symbolProfile   SymbolProfile @relation(fields: [symbolProfileId], onDelete: Cascade, references: [id])
+  symbolProfileId String
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([symbolProfileId, date])
+  @@index([date])
+}
+
 model AuthDevice {
   createdAt           DateTime @default(now())
   credentialId        Bytes
@@ -157,7 +185,6 @@ model Order {
   date            DateTime
   fee             Float
   id              String        @id @default(uuid())
-  isDraft         Boolean       @default(false)
   quantity        Float
   symbolProfileId String
   tags            Tag[]
@@ -170,7 +197,7 @@ model Order {
 
   @@index([accountId])
   @@index([date])
-  @@index([isDraft])
+  @@index([symbolProfileId])
   @@index([type])
   @@index([userId])
 }
@@ -200,6 +227,7 @@ model SymbolProfile {
   activities             Order[]
   assetClass             AssetClass?
   assetProfileOverrides  AssetProfileOverrides?
+  assetProfileSplits     AssetProfileSplit[]
   assetSubClass          AssetSubClass?
   comment                String?
   countries              Json?
