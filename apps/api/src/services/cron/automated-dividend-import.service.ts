@@ -1,3 +1,4 @@
+
 import { ActivitiesService } from '@ghostfolio/api/services/activities/activities.service';
 import { ImportService } from '@ghostfolio/api/services/import/import.service';
 import { PortfolioService } from '@ghostfolio/api/app/portfolio/portfolio.service';
@@ -7,9 +8,10 @@ import {
   DEFAULT_CURRENCY,
   PROPERTY_IS_READ_ONLY_MODE
 } from '@ghostfolio/common/config';
-import { UserSettings } from '@ghostfolio/common/interfaces';
+import { RequestWithUser, UserWithSettings } from '@ghostfolio/common/types';
 
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ModuleRef } from '@nestjs/common';
+import { ContextIdFactory } from '@nestjs/core';
 
 @Injectable()
 export class AutomatedDividendImportService {
@@ -17,8 +19,7 @@ export class AutomatedDividendImportService {
 
   public constructor(
     private readonly activitiesService: ActivitiesService,
-    private readonly importService: ImportService,
-    private readonly portfolioService: PortfolioService,
+    private readonly moduleRef: ModuleRef,
     private readonly prismaService: PrismaService,
     private readonly propertyService: PropertyService
   ) {}
@@ -42,6 +43,7 @@ export class AutomatedDividendImportService {
     let totalImportedDividends = 0;
     let totalInvalidDividends = 0;
     let totalUsers = 0;
+    let totalAmbiguousAccounts = 0;
 
     try {
       const users = await this.prismaService.user.findMany({
@@ -53,25 +55,42 @@ export class AutomatedDividendImportService {
       totalUsers = users.length;
 
       for (const user of users) {
-        const accounts = await this.prismaService.account.findMany({
-          select: { id: true },
-          where: { userId: user.id }
-        });
-
-        if (!accounts || accounts.length === 0) {
-          continue;
-        }
-
-        const settingsRecord = await this.prismaService.settings.findUnique({
-          where: { userId: user.id }
-        });
-
-        const userCurrency =
-          (settingsRecord?.settings as UserSettings)?.baseCurrency ??
-          DEFAULT_CURRENCY;
-
         try {
-          const holdings = await this.portfolioService.getHoldings({
+          const settingsRecord =
+            await this.prismaService.settings.findUnique({
+              where: { userId: user.id }
+            });
+
+          const userCurrency =
+            (settingsRecord?.settings as UserWithSettings['settings']['settings'])
+              ?.baseCurrency ?? DEFAULT_CURRENCY;
+
+          // Create an isolated NestJS request context for this user.
+          const contextId = ContextIdFactory.create();
+
+          const request = {
+            user: {
+              id: user.id,
+              settings: settingsRecord
+            }
+          } as unknown as RequestWithUser;
+
+          this.moduleRef.registerRequestByContextId(request, contextId);
+
+          // Resolve request-scoped services using the user's context.
+          const portfolioService = await this.moduleRef.resolve(
+            PortfolioService,
+            contextId,
+            { strict: false }
+          );
+
+          const importService = await this.moduleRef.resolve(
+            ImportService,
+            contextId,
+            { strict: false }
+          );
+
+          const holdings = await portfolioService.getHoldings({
             dateRange: 'max',
             userId: user.id
           });
@@ -80,12 +99,13 @@ export class AutomatedDividendImportService {
 
           for (const holding of holdings) {
             const { dataSource, symbol } = holding.assetProfile ?? {};
+
             if (!dataSource || !symbol) {
               holdingsWithoutAssetProfile++;
               continue;
             }
 
-            const candidateDividends = await this.importService.getDividends({
+            const candidateDividends = await importService.getDividends({
               dataSource,
               symbol,
               userCurrency,
@@ -105,9 +125,19 @@ export class AutomatedDividendImportService {
                 continue;
               }
 
-              const accountId = dividendActivity.accountId ?? accounts[0]?.id;
+              // Never assign a dividend to an arbitrary account.
+              // ImportService only supplies accountId when the account
+              // can be determined unambiguously.
+              const accountId = dividendActivity.accountId;
 
               if (!accountId) {
+                totalAmbiguousAccounts++;
+
+                this.logger.warn(
+                  `Skipping dividend for user ${user.id}, ` +
+                    `${dataSource}/${symbol}: account could not be determined unambiguously.`
+                );
+
                 continue;
               }
 
@@ -151,20 +181,32 @@ export class AutomatedDividendImportService {
           }
         } catch (error) {
           this.logger.error(
-            `Error importing dividends for user ${user.id}: ${error?.message || error}`,
-            error?.stack
+            `Error importing dividends for user ${user.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            error instanceof Error ? error.stack : undefined
           );
         }
       }
     } catch (error) {
       this.logger.error(
-        `Error running automated dividend import: ${error?.message || error}`,
-        error?.stack
+        `Error running automated dividend import: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
       );
     }
 
     this.logger.log(
-      `Automated dividend import: users=${totalUsers}, holdings=${totalHoldings}, candidates=${totalCandidateDividends}, duplicates=${totalDuplicateDividends}, invalid=${totalInvalidDividends}, missingAssetProfile=${holdingsWithoutAssetProfile}, imported=${totalImportedDividends}`
+      `Automated dividend import: ` +
+        `users=${totalUsers}, ` +
+        `holdings=${totalHoldings}, ` +
+        `candidates=${totalCandidateDividends}, ` +
+        `duplicates=${totalDuplicateDividends}, ` +
+        `invalid=${totalInvalidDividends}, ` +
+        `missingAssetProfile=${holdingsWithoutAssetProfile}, ` +
+        `ambiguousAccounts=${totalAmbiguousAccounts}, ` +
+        `imported=${totalImportedDividends}`
     );
 
     return totalImportedDividends;
