@@ -1,9 +1,11 @@
+import { KEY_SUBSCRIPTION_INTERSTITIAL_SHOWN } from '@ghostfolio/client/services/settings-storage.service';
 import { WebAuthnService } from '@ghostfolio/client/services/web-authn.service';
+import { BULL_BOARD_COOKIE_NAME } from '@ghostfolio/common/config';
 import { Filter, User } from '@ghostfolio/common/interfaces';
 import { hasPermission, permissions } from '@ghostfolio/common/permissions';
 
 import { HttpClient } from '@angular/common/http';
-import { computed, DestroyRef, inject, Injectable } from '@angular/core';
+import { computed, DestroyRef, inject, Service } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
 import { ObservableStore } from '@codewithdan/observable-store';
@@ -18,9 +20,7 @@ import { GfSubscriptionInterstitialDialogComponent } from '../../components/subs
 import { UserStoreActions } from './user-store.actions';
 import { UserStoreState } from './user-store.state';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Service()
 export class UserService extends ObservableStore<UserStoreState> {
   private readonly deviceType = computed(
     () => this.deviceDetectorService.deviceInfo().deviceType
@@ -110,7 +110,7 @@ export class UserService extends ObservableStore<UserStoreState> {
     window.localStorage.clear();
     window.sessionStorage.clear();
 
-    void this.clearAllCookies();
+    this.clearBullBoardCookie();
 
     this.reset();
 
@@ -119,27 +119,8 @@ export class UserService extends ObservableStore<UserStoreState> {
     }
   }
 
-  private async clearAllCookies() {
-    if (!('cookieStore' in window)) {
-      console.warn('Cookie Store API not available in this browser');
-      return;
-    }
-
-    const cookies = await cookieStore.getAll();
-
-    const cookieNames = cookies
-      .map(({ name }) => {
-        return name;
-      })
-      .filter((name): name is string => {
-        return !!name;
-      });
-
-    await Promise.all(
-      cookieNames.map((name) => {
-        return cookieStore.delete(name);
-      })
-    );
+  private clearBullBoardCookie() {
+    document.cookie = `${BULL_BOARD_COOKIE_NAME}=; Max-Age=0; path=/`;
   }
 
   private fetchUser(): Observable<User> {
@@ -153,14 +134,30 @@ export class UserService extends ObservableStore<UserStoreState> {
           user.settings.retirementDate = parseISO(user.settings.retirementDate);
         }
 
+        if (user.subscription?.expiresAt) {
+          user.subscription.expiresAt = parseISO(user.subscription.expiresAt);
+        }
+
+        if (user.subscription?.subscribedAt) {
+          user.subscription.subscribedAt = parseISO(
+            user.subscription.subscribedAt
+          );
+        }
+
         this.setState({ user }, UserStoreActions.GetUser);
 
         if (
           hasPermission(
             user.permissions,
             permissions.enableSubscriptionInterstitial
-          )
+          ) &&
+          !window.sessionStorage.getItem(KEY_SUBSCRIPTION_INTERSTITIAL_SHOWN)
         ) {
+          window.sessionStorage.setItem(
+            KEY_SUBSCRIPTION_INTERSTITIAL_SHOWN,
+            'true'
+          );
+
           const dialogRef = this.dialog.open<
             GfSubscriptionInterstitialDialogComponent,
             SubscriptionInterstitialDialogParams

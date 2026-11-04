@@ -6,7 +6,7 @@ import {
 } from '@ghostfolio/common/interfaces';
 
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { inject, Service } from '@angular/core';
 import {
   startAuthentication,
   startRegistration
@@ -14,9 +14,7 @@ import {
 import { of } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Service()
 export class WebAuthnService {
   private static readonly WEB_AUTH_N_DEVICE_ID = 'WEB_AUTH_N_DEVICE_ID';
 
@@ -68,7 +66,7 @@ export class WebAuthnService {
     const deviceId = this.getDeviceId();
 
     return this.http
-      .delete<AuthDeviceDto>(`/api/v1/auth-device/${deviceId}`)
+      .delete<AuthDeviceDto>(`/api/v1/auth-devices/${deviceId}`)
       .pipe(
         catchError((error) => {
           console.warn(`Could not deregister device ${deviceId}`, error);

@@ -11,11 +11,10 @@
     (closed)="onPanelClosed()"
   >
     <mat-select-trigger>
-      <div class="d-flex">
-        @if (selectedAccount()) {
+      <div class="align-items-center align-middle d-inline-flex lh-1">
+        @if (selectedAccount()?.platform?.url) {
           <gf-entity-logo
-            class="mr-1"
-            [hasPlaceholder]="true"
+            class="me-1"
             [tooltip]="selectedAccount()?.platform?.name ?? ''"
             [url]="selectedAccount()?.platform?.url ?? ''"
           />
@@ -28,16 +27,25 @@
       <mat-option [value]="null" />
     }
 
-    @for (account of accounts(); track account.id) {
+    @for (account of sortedAccounts(); track account.id) {
       <mat-option [value]="account.id">
-        <div class="d-flex">
+        <div class="align-items-center d-flex">
           <gf-entity-logo
-            class="mr-1"
+            class="me-1"
             [hasPlaceholder]="true"
             [tooltip]="account.platform?.name ?? ''"
             [url]="account.platform?.url ?? ''"
           />
-          <span>{{ account.name }}</span>
+          <div class="lh-1">
+            <span>{{ account.name }}</span>
+            <br />
+            <small class="text-body-secondary">
+              @if (account.platform?.name) {
+                {{ account.platform?.name }} ·
+              }
+              {{ account.currency }}</small
+            >
+          </div>
         </div>
       </mat-option>
     }
