@@ -1,5 +1,5 @@
-import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
-import { ImportService } from '@ghostfolio/api/app/import/import.service';
+import { ActivitiesService } from '@ghostfolio/api/services/activities/activities.service';
+import { ImportService } from '@ghostfolio/api/services/import/import.service';
 import { PortfolioService } from '@ghostfolio/api/app/portfolio/portfolio.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
