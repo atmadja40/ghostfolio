@@ -18,19 +18,15 @@ import { CronService } from './cron.service';
 
 @Module({
   imports: [
-    ActivitiesModule,
     ConfigurationModule,
     DataGatheringQueueModule,
-    ImportModule,
-    PortfolioModule,
-    PrismaModule,
     PropertyModule,
     StatisticsGatheringQueueModule,
     TwitterBotModule,
     UserModule
   ],
-  providers: [AutomatedDividendImportService, CronService]
 	providers: [
+		AutomatedDividendImportService,
     {
       inject: [
         ConfigurationService,
@@ -41,7 +37,6 @@ import { CronService } from './cron.service';
         UserService
       ],
       provide: CronService,
-			AutomatedDividendImportService,
       useFactory: (
         configurationService: ConfigurationService,
         dataGatheringService: DataGatheringService,
