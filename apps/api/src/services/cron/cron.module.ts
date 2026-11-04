@@ -1,9 +1,4 @@
-import { ActivitiesModule } from '@ghostfolio/api/services/activities/activities.module';
-import { ImportModule } from '@ghostfolio/api/services/import/import.module';
-import { PortfolioModule } from '@ghostfolio/api/app/portfolio/portfolio.module';
-import { UserModule } from '@ghostfolio/api/services/user/user.module';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
-import { PrismaModule } from '@ghostfolio/api/services/prisma/prisma.module';
 import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
 import { PropertyModule } from '@ghostfolio/api/services/property/property.module';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
@@ -16,7 +11,6 @@ import { TwitterBotService } from '@ghostfolio/api/services/twitter-bot/twitter-
 import { UserModule } from '@ghostfolio/api/services/user/user.module';
 import { UserService } from '@ghostfolio/api/services/user/user.service';
 
-import { Module } from '@nestjs/common';
 import { Logger, Module } from '@nestjs/common';
 
 import { AutomatedDividendImportService } from './automated-dividend-import.service';
@@ -36,5 +30,42 @@ import { CronService } from './cron.service';
     UserModule
   ],
   providers: [AutomatedDividendImportService, CronService]
+	providers: [
+    {
+      inject: [
+        ConfigurationService,
+        DataGatheringService,
+        PropertyService,
+        StatisticsGatheringService,
+        TwitterBotService,
+        UserService
+      ],
+      provide: CronService,
+			AutomatedDividendImportService,
+      useFactory: (
+        configurationService: ConfigurationService,
+        dataGatheringService: DataGatheringService,
+        propertyService: PropertyService,
+        statisticsGatheringService: StatisticsGatheringService,
+        twitterBotService: TwitterBotService,
+        userService: UserService
+      ) => {
+        if (!configurationService.get('ENABLE_FEATURE_CRON')) {
+          Logger.log('Scheduled cron jobs are disabled', 'CronService');
+
+          return null;
+        }
+
+        return new CronService(
+          configurationService,
+          dataGatheringService,
+          propertyService,
+          statisticsGatheringService,
+          twitterBotService,
+          userService
+        );
+      }
+    }
+  ]
 })
 export class CronModule {}

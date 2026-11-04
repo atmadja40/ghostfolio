@@ -31,7 +31,6 @@ import { ImportService } from './import.service';
     SymbolProfileModule,
     TagModule
   ],
-  providers: [ImportService],
-  exports: [ImportService]
+  providers: [ImportService]
 })
 export class ImportModule {}
