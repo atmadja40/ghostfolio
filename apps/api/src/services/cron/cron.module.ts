@@ -1,6 +1,6 @@
-import { ActivitiesModule } from '@ghostfolio/api/app/activities/activities.module';
-import { ImportModule } from '@ghostfolio/api/app/import/import.module';
-import { PortfolioModule } from '@ghostfolio/api/app/portfolio/portfolio.module';
+import { ActivitiesModule } from '@ghostfolio/api/services/activities/activities.module';
+import { ImportModule } from '@ghostfolio/api/services/import/import.module';
+import { PortfolioModule } from '@ghostfolio/api/services/portfolio/portfolio.module';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
 import { PrismaModule } from '@ghostfolio/api/services/prisma/prisma.module';
 import { PropertyModule } from '@ghostfolio/api/services/property/property.module';
