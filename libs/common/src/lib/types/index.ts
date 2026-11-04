@@ -1,4 +1,4 @@
-import type { AccessType } from './access-type.type';
+import type { AccessLevel } from './access-level.type';
 import type { AccessWithGranteeUser } from './access-with-grantee-user.type';
 import type { AccountWithBalance } from './account-with-balance.type';
 import type { AccountWithPlatform } from './account-with-platform.type';
@@ -24,12 +24,13 @@ import type { PropertyKey } from './property-key.type';
 import type { RequestWithUser } from './request-with-user.type';
 import type { SectorName } from './sector-name.type';
 import type { SubscriptionOfferKey } from './subscription-offer-key.type';
+import type { TagWithAccountAndActivityCount } from './tag-with-account-and-activity-count.type';
 import type { ToggleOption } from './toggle-option.type';
 import type { UserWithSettings } from './user-with-settings.type';
 import type { ViewMode } from './view-mode.type';
 
 export type {
-  AccessType,
+  AccessLevel,
   AccessWithGranteeUser,
   AccountWithBalance,
   AccountWithPlatform,
@@ -55,6 +56,7 @@ export type {
   RequestWithUser,
   SectorName,
   SubscriptionOfferKey,
+  TagWithAccountAndActivityCount,
   ToggleOption,
   UserWithSettings,
   ViewMode

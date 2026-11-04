@@ -1,11 +1,11 @@
 import { AssetProfileIdentifier } from '@ghostfolio/common/interfaces';
 
-import { Injectable } from '@angular/core';
+import { Service } from '@angular/core';
 
-@Injectable({
-  // Required to allow mocking in Storybook
-  providedIn: 'root'
-})
+// Must stay auto-provided: the currency selector and portfolio filter form
+// stories render gf-entity-logo without providing an override and resolve
+// this from the root injector
+@Service()
 export class EntityLogoImageSourceService {
   public getLogoUrlByAssetProfileIdentifier({
     dataSource,

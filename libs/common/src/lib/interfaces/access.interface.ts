@@ -1,19 +1,13 @@
-import { AccessType } from '@ghostfolio/common/types';
-
-import { AccessPermission } from '@prisma/client';
+import { AccessType } from '@ghostfolio/prisma/enums';
 
 import { AccessSettings } from './access-settings.interface';
 
 export interface Access {
   alias: string | null;
+  expiresAt: Date;
   grantee?: string;
   id: string;
-
-  /**
-   * @deprecated Use the scopes instead
-   */
-  permissions: AccessPermission[];
-
+  lastUsedAt?: Date | null;
   scopes: string[];
   settings?: AccessSettings;
   type: AccessType;

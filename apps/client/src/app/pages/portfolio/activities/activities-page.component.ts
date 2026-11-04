@@ -10,6 +10,7 @@ import {
 } from '@ghostfolio/common/interfaces';
 import { hasPermission, permissions } from '@ghostfolio/common/permissions';
 import { internalRoutes } from '@ghostfolio/common/routes/routes';
+import { hasScope, scopes } from '@ghostfolio/common/scopes';
 import { GfActivitiesTableComponent } from '@ghostfolio/ui/activities-table';
 import { GfFabComponent } from '@ghostfolio/ui/fab';
 import { DataService } from '@ghostfolio/ui/services';
@@ -33,7 +34,10 @@ import { format, parseISO } from 'date-fns';
 import { DeviceDetectorService } from 'ngx-device-detector';
 
 import { GfImportActivitiesDialogComponent } from './import-activities-dialog/import-activities-dialog.component';
-import { ImportActivitiesDialogParams } from './import-activities-dialog/interfaces/interfaces';
+import {
+  ImportActivitiesDialogParams,
+  ImportActivitiesDialogResult
+} from './import-activities-dialog/interfaces/interfaces';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -53,6 +57,7 @@ export class GfActivitiesPageComponent implements OnInit {
   protected hasImpersonationId: boolean;
   protected hasPermissionToCreateActivity: boolean;
   protected hasPermissionToDeleteActivity: boolean;
+  protected hasPermissionToUpdateActivity: boolean;
   protected readonly internalRoutes = internalRoutes;
   protected pageIndex = 0;
   protected readonly pageSize = DEFAULT_PAGE_SIZE;
@@ -74,6 +79,12 @@ export class GfActivitiesPageComponent implements OnInit {
   );
   private readonly router = inject(Router);
   private readonly userService = inject(UserService);
+
+  protected get hasPermissionToImportActivities() {
+    // An import always writes to the own portfolio, hence it is not available
+    // while the user impersonates a different user
+    return this.hasPermissionToCreateActivity && !this.hasImpersonationId;
+  }
 
   public ngOnInit() {
     this.deviceType = this.deviceDetectorService.getDeviceInfo().deviceType;
@@ -209,7 +220,8 @@ export class GfActivitiesPageComponent implements OnInit {
   protected onImport() {
     const dialogRef = this.dialog.open<
       GfImportActivitiesDialogComponent,
-      ImportActivitiesDialogParams
+      ImportActivitiesDialogParams,
+      ImportActivitiesDialogResult
     >(GfImportActivitiesDialogComponent, {
       data: {
         deviceType: this.deviceType,
@@ -222,22 +234,25 @@ export class GfActivitiesPageComponent implements OnInit {
     dialogRef
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.userService
-          .get(true)
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe();
+      .subscribe(({ withRefresh } = { withRefresh: false }) => {
+        if (withRefresh) {
+          this.userService
+            .get(true)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe();
 
-        this.fetchActivities();
+          this.fetchActivities();
 
-        this.changeDetectorRef.markForCheck();
+          this.changeDetectorRef.markForCheck();
+        }
       });
   }
 
   protected onImportDividends() {
     const dialogRef = this.dialog.open<
       GfImportActivitiesDialogComponent,
-      ImportActivitiesDialogParams
+      ImportActivitiesDialogParams,
+      ImportActivitiesDialogResult
     >(GfImportActivitiesDialogComponent, {
       data: {
         activityTypes: ['DIVIDEND'],
@@ -251,15 +266,17 @@ export class GfActivitiesPageComponent implements OnInit {
     dialogRef
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        this.userService
-          .get(true)
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe();
+      .subscribe(({ withRefresh } = { withRefresh: false }) => {
+        if (withRefresh) {
+          this.userService
+            .get(true)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe();
 
-        this.fetchActivities();
+          this.fetchActivities();
 
-        this.changeDetectorRef.markForCheck();
+          this.changeDetectorRef.markForCheck();
+        }
       });
   }
 
@@ -301,6 +318,7 @@ export class GfActivitiesPageComponent implements OnInit {
         this.totalItems = count;
 
         if (
+          !this.hasImpersonationId &&
           this.hasPermissionToCreateActivity &&
           this.user?.activitiesCount === 0
         ) {
@@ -330,12 +348,18 @@ export class GfActivitiesPageComponent implements OnInit {
     this.user = aUser;
 
     this.hasPermissionToCreateActivity =
-      !this.hasImpersonationId &&
       hasPermission(this.user.permissions, permissions.createActivity) &&
+      hasScope(this.user.scopes, scopes.activityCreate) &&
       !this.user.settings?.isRestrictedView;
 
     this.hasPermissionToDeleteActivity =
-      !this.hasImpersonationId &&
-      hasPermission(this.user.permissions, permissions.deleteActivity);
+      hasPermission(this.user.permissions, permissions.deleteActivity) &&
+      hasScope(this.user.scopes, scopes.activityDelete) &&
+      !this.user.settings?.isRestrictedView;
+
+    this.hasPermissionToUpdateActivity =
+      hasPermission(this.user.permissions, permissions.updateActivity) &&
+      hasScope(this.user.scopes, scopes.activityUpdate) &&
+      !this.user.settings?.isRestrictedView;
   }
 }

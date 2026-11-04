@@ -1,17 +1,24 @@
 import {
+  Scope,
   SCOPES_OF_READ_ACCESS,
+  SCOPES_OF_READ_RESTRICTED_ACCESS,
   SCOPES_OF_WRITE_ACCESS,
+  canGrantUnrestrictedReadAccess,
+  getAccessLevel,
   getScopesOfAccess,
+  getScopesOfAccessLevel,
   getScopesOfOwnAccess,
   getScopesOfUnrestrictedImpersonation,
+  hasAnyScopeOfWriteAccess,
   hasScope,
   scopes
 } from '@ghostfolio/common/scopes';
+import { AccessLevel } from '@ghostfolio/common/types';
 
 describe('Scopes', () => {
   describe('Scopes of read access', () => {
     // A new scope which reads data has to be added here deliberately, because
-    // an access with the permission to read receives this list
+    // an access which reads data receives this list
     it('Covers every read scope', () => {
       expect(SCOPES_OF_READ_ACCESS).toEqual([
         scopes.accountRead,
@@ -54,69 +61,125 @@ describe('Scopes', () => {
     });
   });
 
+  describe('Get access level', () => {
+    it('Write scopes with the monetary values', () => {
+      expect(
+        getAccessLevel([...SCOPES_OF_READ_ACCESS, ...SCOPES_OF_WRITE_ACCESS])
+      ).toEqual('CREATE_READ_UPDATE_DELETE');
+    });
+
+    it('Write scopes without the monetary values', () => {
+      expect(
+        getAccessLevel([
+          ...SCOPES_OF_READ_RESTRICTED_ACCESS,
+          ...SCOPES_OF_WRITE_ACCESS
+        ])
+      ).toEqual('CREATE_READ_RESTRICTED_UPDATE_DELETE');
+    });
+
+    it('Read scopes with the monetary values', () => {
+      expect(getAccessLevel([...SCOPES_OF_READ_ACCESS])).toEqual('READ');
+    });
+
+    it('Read scopes without the monetary values', () => {
+      expect(getAccessLevel([...SCOPES_OF_READ_RESTRICTED_ACCESS])).toEqual(
+        'READ_RESTRICTED'
+      );
+    });
+
+    it('Without scopes', () => {
+      expect(getAccessLevel(undefined)).toEqual('READ_RESTRICTED');
+    });
+  });
+
+  describe('Get scopes of access level', () => {
+    // A new access level has to be added here deliberately, because the type
+    // of the record is exhaustive
+    const accessLevels: Record<AccessLevel, true> = {
+      CREATE_READ_RESTRICTED_UPDATE_DELETE: true,
+      CREATE_READ_UPDATE_DELETE: true,
+      READ: true,
+      READ_RESTRICTED: true
+    };
+
+    it('Grants the write scopes without the monetary values', () => {
+      expect(
+        getScopesOfAccessLevel('CREATE_READ_RESTRICTED_UPDATE_DELETE')
+      ).toEqual([
+        ...SCOPES_OF_READ_RESTRICTED_ACCESS,
+        ...SCOPES_OF_WRITE_ACCESS
+      ]);
+    });
+
+    // The dialog compares the access level of the stored scopes with the
+    // selected access level, hence both functions have to be inverse
+    for (const accessLevel of Object.keys(accessLevels) as AccessLevel[]) {
+      it(`Is inverse to the access level of ${accessLevel}`, () => {
+        expect(getAccessLevel(getScopesOfAccessLevel(accessLevel))).toEqual(
+          accessLevel
+        );
+      });
+    }
+  });
+
   describe('Get scopes of access', () => {
-    it('Scopes take precedence over the permissions', () => {
+    it('Gives the scopes of the access', () => {
       expect(
         getScopesOfAccess({
-          granteeUserId: 'ffb08949-2f8a-4b6e-88fd-0f1e6b6b5f5d',
-          permissions: ['READ'],
-          scopes: [scopes.portfolioRead]
+          type: 'PRIVATE',
+          scopes: [scopes.portfolioRead, scopes.portfolioReadValues]
         })
-      ).toEqual([scopes.portfolioRead]);
+      ).toEqual([scopes.portfolioRead, scopes.portfolioReadValues]);
     });
 
-    it('Derive from the permission to read', () => {
-      // An access created before the scopes have been introduced has no scopes
+    it('Without the scope to read the values', () => {
       expect(
         getScopesOfAccess({
-          granteeUserId: 'ffb08949-2f8a-4b6e-88fd-0f1e6b6b5f5d',
-          permissions: ['READ'],
-          scopes: []
-        })
-      ).toContain(scopes.portfolioReadValues);
-    });
-
-    it('Derive from the permission to read restricted', () => {
-      expect(
-        getScopesOfAccess({
-          granteeUserId: 'ffb08949-2f8a-4b6e-88fd-0f1e6b6b5f5d',
-          permissions: ['READ_RESTRICTED'],
-          scopes: []
+          scopes: [scopes.portfolioRead],
+          type: 'PRIVATE'
         })
       ).not.toContain(scopes.portfolioReadValues);
     });
 
-    it('The permission to read gives no write scope', () => {
+    it('Without scopes', () => {
+      expect(getScopesOfAccess({ type: 'PRIVATE' })).toEqual([]);
+    });
+
+    it('Gives the write scopes', () => {
       const scopesOfAccess = getScopesOfAccess({
-        granteeUserId: 'ffb08949-2f8a-4b6e-88fd-0f1e6b6b5f5d',
-        permissions: ['READ'],
-        scopes: []
+        type: 'PRIVATE',
+        scopes: [...SCOPES_OF_READ_ACCESS, ...SCOPES_OF_WRITE_ACCESS]
       });
 
       for (const scope of SCOPES_OF_WRITE_ACCESS) {
-        expect(scopesOfAccess).not.toContain(scope);
+        expect(scopesOfAccess).toContain(scope);
       }
     });
 
-    it('Without permissions and scopes', () => {
+    it('Drops an unknown scope', () => {
       expect(
         getScopesOfAccess({
-          granteeUserId: 'ffb08949-2f8a-4b6e-88fd-0f1e6b6b5f5d'
+          type: 'PRIVATE',
+          scopes: [scopes.portfolioRead, 'portfolio:write']
         })
-      ).not.toContain(scopes.portfolioReadValues);
+      ).toEqual([scopes.portfolioRead]);
     });
   });
 
   describe('Get scopes of public access', () => {
     it('Allows reading the portfolio', () => {
-      expect(getScopesOfAccess({ permissions: ['READ_RESTRICTED'] })).toContain(
-        scopes.portfolioRead
-      );
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_RESTRICTED_ACCESS],
+          type: 'PUBLIC'
+        })
+      ).toContain(scopes.portfolioRead);
     });
 
     it('Excludes the accounts and the watchlist', () => {
       const scopesOfAccess = getScopesOfAccess({
-        permissions: ['READ_RESTRICTED']
+        scopes: [...SCOPES_OF_READ_RESTRICTED_ACCESS],
+        type: 'PUBLIC'
       });
 
       expect(scopesOfAccess).not.toContain(scopes.accountRead);
@@ -130,15 +193,123 @@ describe('Scopes', () => {
             scopes.portfolioRead,
             scopes.portfolioReadValues,
             scopes.watchlistRead
-          ]
+          ],
+          type: 'PUBLIC'
         })
       ).toEqual([scopes.portfolioRead]);
     });
 
-    it('Cannot be widened by the permission to read', () => {
-      expect(getScopesOfAccess({ permissions: ['READ'] })).not.toContain(
-        scopes.portfolioReadValues
-      );
+    it('Cannot expose the monetary values', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_ACCESS],
+          type: 'PUBLIC'
+        })
+      ).not.toContain(scopes.portfolioReadValues);
+    });
+
+    // The dialog offers no permission which changes data for a public access,
+    // hence this function is the sole barrier for it
+    it('Gives no write scope', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_WRITE_ACCESS],
+          type: 'PUBLIC'
+        })
+      ).toEqual([]);
+    });
+  });
+
+  describe('Get scopes of access for the model context protocol', () => {
+    it('Allows reading the portfolio', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_ACCESS],
+          type: 'MCP'
+        })
+      ).toContain(scopes.portfolioRead);
+    });
+
+    it('Allows reading the accounts and the watchlist', () => {
+      const scopesOfAccess = getScopesOfAccess({
+        scopes: [...SCOPES_OF_READ_ACCESS],
+        type: 'MCP'
+      });
+
+      expect(scopesOfAccess).toContain(scopes.accountRead);
+      expect(scopesOfAccess).toContain(scopes.watchlistRead);
+    });
+
+    it('Allows reading the monetary values', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_ACCESS],
+          type: 'MCP'
+        })
+      ).toContain(scopes.portfolioReadValues);
+    });
+
+    it('Without the scope to read the values', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_RESTRICTED_ACCESS],
+          type: 'MCP'
+        })
+      ).not.toContain(scopes.portfolioReadValues);
+    });
+
+    // The controller exposes no tool for a further write scope, hence it stays
+    // ineffective
+    it('Gives the write scopes to update an account and to create an activity only', () => {
+      expect(
+        getScopesOfAccess({
+          scopes: [...SCOPES_OF_READ_ACCESS, ...SCOPES_OF_WRITE_ACCESS],
+          type: 'MCP'
+        }).filter((scope) => {
+          return SCOPES_OF_WRITE_ACCESS.includes(scope as Scope);
+        })
+      ).toEqual([scopes.accountUpdate, scopes.activityCreate]);
+    });
+
+    // The dialog narrows the access level to the scopes which the type
+    // permits, hence the restricted access level with the write scopes has to
+    // survive the intersection
+    it('Keeps the access level to change the data without the monetary values', () => {
+      expect(
+        getAccessLevel(
+          getScopesOfAccess({
+            scopes: getScopesOfAccessLevel(
+              'CREATE_READ_RESTRICTED_UPDATE_DELETE'
+            ),
+            type: 'MCP'
+          })
+        )
+      ).toEqual('CREATE_READ_RESTRICTED_UPDATE_DELETE');
+    });
+
+    it('Keeps the access level to change the data with the monetary values', () => {
+      expect(
+        getAccessLevel(
+          getScopesOfAccess({
+            scopes: getScopesOfAccessLevel('CREATE_READ_UPDATE_DELETE'),
+            type: 'MCP'
+          })
+        )
+      ).toEqual('CREATE_READ_UPDATE_DELETE');
+    });
+  });
+
+  describe('Can grant unrestricted read access', () => {
+    it('Model context protocol', () => {
+      expect(canGrantUnrestrictedReadAccess({ type: 'MCP' })).toEqual(true);
+    });
+
+    it('Private', () => {
+      expect(canGrantUnrestrictedReadAccess({ type: 'PRIVATE' })).toEqual(true);
+    });
+
+    it('Public', () => {
+      expect(canGrantUnrestrictedReadAccess({ type: 'PUBLIC' })).toEqual(false);
     });
   });
 
@@ -182,6 +353,22 @@ describe('Scopes', () => {
       for (const scope of SCOPES_OF_WRITE_ACCESS) {
         expect(scopesOfImpersonation).not.toContain(scope);
       }
+    });
+  });
+
+  describe('Has any scope of write access', () => {
+    it('Single write scope', () => {
+      expect(hasAnyScopeOfWriteAccess([scopes.activityUpdate])).toEqual(true);
+    });
+
+    it('Read scopes only', () => {
+      expect(hasAnyScopeOfWriteAccess([...SCOPES_OF_READ_ACCESS])).toEqual(
+        false
+      );
+    });
+
+    it('Without scopes', () => {
+      expect(hasAnyScopeOfWriteAccess(undefined)).toEqual(false);
     });
   });
 
