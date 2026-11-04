@@ -24,7 +24,14 @@ export class CronService {
   private static readonly EVERY_SUNDAY_AT_LUNCH_TIME = '0 12 * * 0';
   private readonly logger = new Logger(CronService.name);
 
-  public constructor(private readonly moduleRef: ModuleRef) {}
+  public constructor(
+    private readonly configurationService: ConfigurationService,
+    private readonly dataGatheringService: DataGatheringService,
+    private readonly propertyService: PropertyService,
+    private readonly statisticsGatheringService: StatisticsGatheringService,
+    private readonly twitterBotService: TwitterBotService,
+    private readonly userService: UserService
+  ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
   public async runEveryHour() {
