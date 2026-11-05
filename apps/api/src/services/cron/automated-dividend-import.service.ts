@@ -10,8 +10,8 @@ import {
 } from '@ghostfolio/common/config';
 import { RequestWithUser, UserWithSettings } from '@ghostfolio/common/types';
 
-import { Injectable, Logger, ModuleRef } from '@nestjs/common';
-import { ContextIdFactory } from '@nestjs/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { ContextIdFactory, ModuleRef } from '@nestjs/core';
 
 @Injectable()
 export class AutomatedDividendImportService {
